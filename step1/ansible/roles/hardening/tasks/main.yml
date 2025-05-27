@@ -1,0 +1,25 @@
+---
+- name: Install sudo
+  package:
+    name: sudo
+    state: present
+
+- name: Ensure user is in sudo group
+  user:
+    name: "{{ user_name }}"
+    groups: sudo
+    append: yes
+
+- name: Enforce sudo and restrict su
+  lineinfile:
+    dest: /etc/pam.d/su
+    regexp: '^#?auth\s+required\s+pam_wheel.so use_uid'
+    line: 'auth required pam_wheel.so use_uid'
+    state: present
+
+- name: Configure sudoers for sudo group
+  copy:
+    dest: /etc/sudoers.d/90-custom-sudo
+    content: |
+      %sudo ALL=(ALL) ALL
+    mode: '0440'

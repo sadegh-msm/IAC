@@ -1,0 +1,5 @@
+user_name: devops
+public_key_file: id_rsa.pub
+gitlab_url: "http://localhost"
+gitlab_runner_token: "undefined"
+# gitlab_runner_token: ""

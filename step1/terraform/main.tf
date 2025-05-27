@@ -31,9 +31,14 @@ variable "chosen_name" {
   default     = "24.04"
 }
 
+# variable "chosen_plan_id" {
+#   type        = string
+#   default     = "g2-4-2-0"
+# }
+
 variable "chosen_plan_id" {
   type        = string
-  default     = "g2-4-2-0"
+  default     = "g2-12-4-0"
 }
 
 data "arvan_security_groups" "default_security_groups" {

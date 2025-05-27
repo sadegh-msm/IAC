@@ -1,0 +1,21 @@
+---
+- name: Ensure user exists
+  ansible.builtin.user:
+    name: "{{ user_name }}"
+    shell: /bin/bash
+
+- name: Create .ssh directory
+  file:
+    path: "/home/{{ user_name }}/.ssh"
+    state: directory
+    mode: '0700'
+    owner: "{{ user_name }}"
+    group: "{{ user_name }}"
+
+- name: Install public key for passwordless SSH
+  copy:
+    src: "{{ public_key_file }}"
+    dest: "/home/{{ user_name }}/.ssh/authorized_keys"
+    owner: "{{ user_name }}"
+    group: "{{ user_name }}"
+    mode: '0600'

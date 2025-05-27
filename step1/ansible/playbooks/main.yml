@@ -1,0 +1,9 @@
+---
+- name: Configure Servers
+  hosts: all
+  become: true
+  roles:
+    # - roles/ssh_passwordless
+    # - roles/hardening
+    # - roles/bind9
+    - roles/gitlab

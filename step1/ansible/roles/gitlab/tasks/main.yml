@@ -1,0 +1,139 @@
+---
+- name: Set Shecan DNS for systemd-resolved
+  lineinfile:
+    path: /etc/systemd/resolved.conf
+    regexp: '^#?DNS='
+    line: 'DNS=178.22.122.100 185.51.200.2'
+
+- name: Restart systemd-resolved to apply DNS changes
+  service:
+    name: systemd-resolved
+    state: restarted
+
+- name: Install Docker and dependencies
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - software-properties-common
+      - docker.io
+      - docker-compose
+    state: present
+    update_cache: yes
+
+- name: Start and enable Docker
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Add user to 'docker' group
+  user:
+    name: "{{ ansible_user | default('ubuntu') }}"
+    groups: docker
+    append: yes
+
+- name: Pull GitLab docker image
+  docker_image:
+    name: docker.arvancloud.ir/gitlab/gitlab-ee
+    tag: latest
+    source: pull
+
+- name: Pull GitLab Registry docker image
+  docker_image:
+    name: docker.arvancloud.ir/registry:2
+    source: pull
+
+- name: Pull GitLab Runner docker image
+  docker_image:
+    name: docker.arvancloud.ir/gitlab/gitlab-runner
+    source: pull
+
+- name: Create Docker network for GitLab stack
+  docker_network:
+    name: gitlab-network
+    state: present
+
+- name: Run GitLab container
+  docker_container:
+    name: gitlab
+    image: docker.arvancloud.ir/gitlab/gitlab-ee:latest
+    state: started
+    restart_policy: always
+    networks:
+      - name: gitlab-network
+    ports:
+      - "80:80"
+      - "443:443"
+      - "2222:22"
+    env:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://{{ ansible_host }}'
+        gitlab_rails['registry_enabled'] = true
+        registry_external_url 'http://{{ ansible_host }}:5000'
+        gitlab_rails['gitlab_ssh_host'] = '{{ ansible_host }}'
+        gitlab_rails['gitlab_shell_ssh_port'] = 2222
+    volumes:
+      - /srv/gitlab/config:/etc/gitlab
+      - /srv/gitlab/logs:/var/log/gitlab
+      - /srv/gitlab/data:/var/opt/gitlab
+
+- name: Get GitLab initial root password
+  command: >
+    docker exec gitlab grep 'Password:' /etc/gitlab/initial_root_password
+  register: gitlab_root_password
+  changed_when: false
+
+- name: Write GitLab root password to file
+  copy:
+    dest: /tmp/gitlab-root-password.txt
+    content: "{{ gitlab_root_password.stdout }}"
+    mode: '0600'
+
+- name: Run GitLab Registry container
+  docker_container:
+    name: registry
+    image: docker.arvancloud.ir/registry:2
+    state: started
+    restart_policy: always
+    networks:
+      - name: gitlab-network
+    ports:
+      - "5000:5000"
+    volumes:
+      - /srv/registry/data:/var/lib/registry
+
+- name: Run GitLab Runner container
+  docker_container:
+    name: gitlab-runner
+    image: docker.arvancloud.ir/gitlab/gitlab-runner:latest
+    state: started
+    restart_policy: always
+    networks:
+      - name: gitlab-network
+    volumes:
+      - /srv/gitlab-runner/config:/etc/gitlab-runner
+    command: ["run", "--user=gitlab-runner", "--working-directory=/home/gitlab-runner"]
+
+# - name: Register GitLab Runner
+#   shell: >
+#     docker exec gitlab-runner gitlab-runner register --non-interactive
+#       --url http://{{ ansible_host }}
+#       --registration-token {{ gitlab_runner_token }}
+#       --executor docker
+#       --docker-image alpine:latest
+#       --description "ansible-registered-runner"
+#       --tag-list "docker,linux"
+#       --run-untagged=true
+#       --locked=false
+#   args:
+#     creates: /srv/gitlab-runner/config/config.toml
+#   tags: runner
+#   when: gitlab_runner_token != "undefined"
+- name: Register GitLab Runner inside Docker container
+  shell: >
+    docker exec gitlab-runner gitlab-runner register --non-interactive --url http://{{ ansible_host }} --registration-token {{ gitlab_runner_token }} --executor docker --docker-image alpine:latest --description "ansible-registered-runner" --tag-list "docker,linux" --run-untagged=true --locked=false
+  args:
+    creates: /srv/gitlab-runner/config/config.toml
+  tags: runner

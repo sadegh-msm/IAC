@@ -1,0 +1,23 @@
+---
+- name: Install bind9 packages
+  apt:
+    name:
+      - bind9
+      - bind9utils
+      - bind9-doc
+    state: present
+    update_cache: yes
+
+- name: Deploy named.conf.options
+  template:
+    src: named.conf.options.j2
+    dest: /etc/bind/named.conf.options
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Ensure bind9 service is running and enabled
+  service:
+    name: bind9
+    state: started
+    enabled: yes
