@@ -4,11 +4,13 @@
     path: /etc/systemd/resolved.conf
     regexp: '^#?DNS='
     line: 'DNS=178.22.122.100 185.51.200.2'
+  tags: gitlab
 
 - name: Restart systemd-resolved to apply DNS changes
   service:
     name: systemd-resolved
     state: restarted
+  tags: gitlab
 
 - name: Install Docker and dependencies
   apt:
@@ -21,39 +23,46 @@
       - docker-compose
     state: present
     update_cache: yes
+  tags: docker
 
 - name: Start and enable Docker
   service:
     name: docker
     state: started
     enabled: yes
+  tags: docker
 
 - name: Add user to 'docker' group
   user:
     name: "{{ ansible_user | default('ubuntu') }}"
     groups: docker
     append: yes
+  tags: docker
 
 - name: Pull GitLab docker image
   docker_image:
     name: docker.arvancloud.ir/gitlab/gitlab-ee
     tag: latest
     source: pull
+  tags: gitlab
 
 - name: Pull GitLab Registry docker image
   docker_image:
     name: docker.arvancloud.ir/registry:2
     source: pull
+  tags: registery
 
 - name: Pull GitLab Runner docker image
   docker_image:
     name: docker.arvancloud.ir/gitlab/gitlab-runner
     source: pull
+  tags: runner
 
 - name: Create Docker network for GitLab stack
   docker_network:
     name: gitlab-network
     state: present
+  tags: gitlab
 
 - name: Run GitLab container
   docker_container:
@@ -78,18 +87,21 @@
       - /srv/gitlab/config:/etc/gitlab
       - /srv/gitlab/logs:/var/log/gitlab
       - /srv/gitlab/data:/var/opt/gitlab
+  tags: gitlab
 
 - name: Get GitLab initial root password
   command: >
     docker exec gitlab grep 'Password:' /etc/gitlab/initial_root_password
   register: gitlab_root_password
   changed_when: false
+  tags: gitlab
 
 - name: Write GitLab root password to file
   copy:
     dest: /tmp/gitlab-root-password.txt
     content: "{{ gitlab_root_password.stdout }}"
     mode: '0600'
+  tags: gitlab
 
 - name: Run GitLab Registry container
   docker_container:
@@ -103,6 +115,7 @@
       - "5000:5000"
     volumes:
       - /srv/registry/data:/var/lib/registry
+  tags: registry
 
 - name: Run GitLab Runner container
   docker_container:
@@ -115,6 +128,7 @@
     volumes:
       - /srv/gitlab-runner/config:/etc/gitlab-runner
     command: ["run", "--user=gitlab-runner", "--working-directory=/home/gitlab-runner"]
+  tags: runner
 
 # - name: Register GitLab Runner
 #   shell: >

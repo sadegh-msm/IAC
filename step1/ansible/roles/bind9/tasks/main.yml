@@ -7,6 +7,7 @@
       - bind9-doc
     state: present
     update_cache: yes
+  tags: bind
 
 - name: Deploy named.conf.options
   template:
@@ -15,9 +16,11 @@
     owner: root
     group: root
     mode: '0644'
+  tags: bind
 
 - name: Ensure bind9 service is running and enabled
   service:
     name: bind9
     state: started
     enabled: yes
+  tags: bind

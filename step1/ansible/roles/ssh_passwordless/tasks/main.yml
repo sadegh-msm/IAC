@@ -3,6 +3,7 @@
   ansible.builtin.user:
     name: "{{ user_name }}"
     shell: /bin/bash
+  tags: passwordless
 
 - name: Create .ssh directory
   file:
@@ -11,6 +12,7 @@
     mode: '0700'
     owner: "{{ user_name }}"
     group: "{{ user_name }}"
+  tags: passwordless
 
 - name: Install public key for passwordless SSH
   copy:
@@ -19,3 +21,4 @@
     owner: "{{ user_name }}"
     group: "{{ user_name }}"
     mode: '0600'
+  tags: passwordless
