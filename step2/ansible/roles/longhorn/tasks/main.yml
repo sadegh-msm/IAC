@@ -1,0 +1,44 @@
+---
+- name: Download Longhorn deployment manifest
+  get_url:
+    url: https://raw.githubusercontent.com/longhorn/longhorn/v1.6.1/deploy/longhorn.yaml
+    dest: /tmp/longhorn.yaml
+    mode: '0644'
+  environment:
+    http_proxy: ""
+    https_proxy: ""
+    no_proxy: 127.0.0.1,localhost,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local
+  when: inventory_hostname == groups['master'][0]
+  tags: longhorn
+
+- name: Download Longhorn iscsi deployment manifest
+  get_url:
+    url: https://raw.githubusercontent.com/longhorn/longhorn/v1.8.0/deploy/prerequisite/longhorn-iscsi-installation.yaml
+    dest: /tmp/longhorn-iscsi-installation.yaml
+    mode: '0644'
+  environment:
+    http_proxy: ""
+    https_proxy: ""
+    no_proxy: 127.0.0.1,localhost,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local
+  when: inventory_hostname == groups['master'][0]
+  tags: longhorn
+
+- name: Apply Longhorn iscsi manifest
+  command: kubectl apply -f /tmp/longhorn-iscsi-installation.yaml
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+    http_proxy: ""
+    https_proxy: ""
+    no_proxy: 127.0.0.1,localhost,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local
+  when: inventory_hostname == groups['master'][0]
+  tags: longhorn
+
+- name: Apply Longhorn manifest
+  command: kubectl apply -f /tmp/longhorn.yaml
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+    http_proxy: ""
+    https_proxy: ""
+    no_proxy: 127.0.0.1,localhost,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local
+  when: inventory_hostname == groups['master'][0]
+  tags: longhorn

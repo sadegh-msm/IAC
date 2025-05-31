@@ -2,6 +2,8 @@ terraform.tfvars
 
 test
 
+.env
+
 # Local .terraform directories
 **/.terraform/*
 

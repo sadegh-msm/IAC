@@ -1,0 +1,67 @@
+---
+- name: Create proxy environment file
+  shell: |
+    echo "export http_proxy=http://194.5.192.226:8888" >> /etc/environment
+    echo "export https_proxy=http://194.5.192.226:8888" >> /etc/environment
+  tags: cri
+
+- name: Add CRI-O repository (OBS)
+  apt_key:
+    url: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_22.04/Release.key"
+    state: present
+  tags: cri
+
+- name: Add CRI-O repository key
+  apt_key:
+    url: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/1.28/xUbuntu_22.04/Release.key"
+    state: present
+  tags: cri
+
+- name: Add CRI-O stable repo
+  apt_repository:
+    repo: "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_22.04/ /"
+    filename: "devel:kubic:libcontainers:stable"
+  tags: cri
+
+- name: Add CRI-O version-specific repo
+  apt_repository:
+    repo: "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/1.28/xUbuntu_22.04/ /"
+    filename: "devel:kubic:libcontainers:stable:cri-o:1.28"
+  tags: cri
+
+- name: Install CRI-O and dependencies
+  apt:
+    name:
+      - cri-o
+      - cri-o-runc
+    update_cache: yes
+    state: present
+  tags: cri
+
+- name: Enable and start CRI-O
+  systemd:
+    name: crio
+    enabled: yes
+    state: started
+  tags: cri
+
+- name: Set HTTP/HTTPS proxy for CRI-O systemd service
+  blockinfile:
+    path: /etc/systemd/system/crio.service.d/proxy.conf
+    create: yes
+    block: |
+      [Service]
+      Environment="http_proxy=http://194.5.192.226:8888"
+      Environment="https_proxy=http://194.5.192.226:8888"
+      Environment="NO_PROXY=127.0.0.1,localhost,10.10.0.0/16,10.96.0.0/12,188.121.117.243"
+  tags: cri
+
+- name: Reload systemd
+  shell: sudo systemctl daemon-reload
+  tags: cri
+
+- name: Restart CRI-O
+  service:
+    name: crio
+    state: restarted
+  tags: cri

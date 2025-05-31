@@ -1,0 +1,52 @@
+global:
+  imageRegistry: "docker.arvancloud.ir"
+  defaultStorageClass: "standard"
+  storageClass: "standard"
+  security:
+    allowInsecureImages: true
+
+
+image:
+  repository: bitnami/grafana
+  tag: 12.0.1-debian-12-r1
+  pullPolicy: IfNotPresent
+
+admin:
+  user: "admin"
+  password: "admin"
+
+smtp:
+  enabled: false
+
+ldap:
+  enabled: false
+
+imageRenderer:
+  enabled: false
+
+dashboardsProvider:
+  enabled: false
+
+grafana:
+  replicaCount: 1
+  containerPorts:
+    grafana: 3000
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+persistence:
+  enabled: true
+  storageClass: "standard"
+  accessMode: ReadWriteOnce
+  size: 2Gi
+
+service:
+  type: ClusterIP
+  ports:
+    grafana: 3000

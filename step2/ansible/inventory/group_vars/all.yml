@@ -1,0 +1,5 @@
+pod_network_cidr: "10.244.0.0/16"
+control_plane_port: 6443
+longhorn_namespace: "longhorn-system"
+longhorn_version: "v1.6.1"
+control_plane_endpoint: "188.121.117.243:6443"

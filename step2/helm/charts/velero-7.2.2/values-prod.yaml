@@ -1,0 +1,142 @@
+image:
+  repository: docker.arvancloud.ir/velero/velero
+  tag: v1.16.0
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 500Mi
+  limits:
+    cpu: 200m
+    memory: 500Mi
+
+dnsPolicy: ClusterFirst
+
+initContainers:
+   - name: velero-plugin-for-aws
+     image: docker.arvancloud.ir/velero/velero-plugin-for-aws:v1.10.0
+     imagePullPolicy: IfNotPresent
+     volumeMounts:
+       - mountPath: /target
+         name: plugins
+
+kubectl:
+  image:
+    repository: docker.arvancloud.ir/bitnami/kubectl
+
+upgradeCRDs: true
+cleanUpCRDs: true
+
+configuration:
+  backupStorageLocation:
+    - name: velero-backup
+      provider: aws
+      bucket: velero-backups-test
+      default: true
+      validationFrequency: 1h
+      accessMode: ReadWrite
+      credential:
+        name: velero
+        key: cloud
+      config: 
+        region: "simin"
+        s3ForcePathStyle: "true"
+        s3Url: "http://s3.ir-thr-at1.arvanstorage.ir" 
+        insecureSkipTLSVerify: true
+
+  volumeSnapshotLocation:
+    - name: velero-backup
+      provider: aws
+      bucket: velero-backups-test
+      default: true
+      validationFrequency: 1h
+      accessMode: ReadWrite
+      credential:
+        name: velero
+        key: cloud
+      config: 
+        region: "simin"
+        s3ForcePathStyle: "true"
+        s3Url: "http://s3.ir-thr-at1.arvanstorage.ir"  
+        insecureSkipTLSVerify: true
+
+  disableControllers:
+  extraEnvVars: 
+    key: TZ
+    value: "Asia/Tehran"
+  garbageCollectionFrequency: 1h
+  logLevel: warning
+  defaultVolumesToFsBackup: true
+  defaultRepoMaintainFrequency: "48h"
+
+rbac:
+  create: true
+  clusterAdministrator: true
+  clusterAdministratorName: cluster-admin
+
+serviceAccount:
+  server:
+    create: true
+
+credentials:
+  useSecret: true
+  secretContents: ## enter access and secret key to ec2 bucket. This configuration will create kubernetes secret.
+    cloud: |
+      [default]
+      aws_access_key_id=access
+      aws_secret_access_key=secret
+
+backupsEnabled: true
+snapshotsEnabled: false
+deployNodeAgent: true
+
+nodeAgent:
+  podVolumePath: /var/lib/kubelet/pods
+  privileged: false
+  priorityClassName: ""
+  resources:
+    requests:
+      cpu: 200m
+      memory: 500Mi
+    limits:
+      memory: 500Mi     
+
+configMaps:
+  fs-restore-action-config:
+    labels:
+      velero.io/plugin-config: ""
+      velero.io/pod-volume-restore: RestoreItemAction
+    data:
+      image: docker.arvancloud.ir/velero/velero-restore-helper:v1.11.1
+
+metrics:
+  enabled: false
+
+schedules:
+  # grafana:
+  #  disabled: false
+  #  labels:
+  #    app: monitoring
+  #  annotations:
+  #    app: monitoring
+  #  schedule: "0 1 * * *"
+  #  useOwnerReferencesInBackup: false
+  #  template:
+  #    ttl: "72h"
+  #    includedNamespaces:
+  #    - monitoring
+  #    labelSelector:
+  #      matchExpressions: 
+  #        - key: app.kubernetes.io/name
+  #          operator: In
+  #          values:
+  #          - grafana
+  test:
+   disabled: false
+   schedule: "1 * * * *"
+   useOwnerReferencesInBackup: false
+   template:
+     ttl: "48h"
+     includedNamespaces:
+     - kube-system
+

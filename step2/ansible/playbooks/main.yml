@@ -1,0 +1,16 @@
+---
+- name: Configue haproxy
+  hosts: haproxy
+  become: true
+  roles:
+    - roles/haproxy
+
+- name: Configue k8s
+  hosts: master
+  become: true
+  roles:
+    - roles/haproxy
+    - roles/cri
+    - roles/k8s
+    - roles/calico
+    - roles/longhorn

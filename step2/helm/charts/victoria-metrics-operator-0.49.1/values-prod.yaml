@@ -1,0 +1,25 @@
+global:
+  image:
+    registry: "docker.arvancloud.ir"
+
+image:
+  repository: victoriametrics/operator
+  pullPolicy: IfNotPresent
+
+crds:
+  enabled: true
+  plain: false
+  cleanup:
+    enabled: false
+    image:
+      repository: bitnami/kubectl
+      pullPolicy: IfNotPresent
+    resources:
+      limits:
+        cpu: "500m"
+        memory: "256Mi"
+      requests:
+        cpu: "100m"
+        memory: "56Mi"
+
+replicaCount: 1

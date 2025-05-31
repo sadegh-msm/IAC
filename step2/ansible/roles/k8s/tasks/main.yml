@@ -1,0 +1,182 @@
+---
+- name: Set Shecan DNS for systemd-resolved
+  lineinfile:
+    path: /etc/systemd/resolved.conf
+    regexp: '^#?DNS='
+    line: 'DNS='
+  tags: k8s
+
+- name: Restart systemd-resolved to apply DNS changes
+  service:
+    name: systemd-resolved
+    state: restarted
+  tags: k8s
+
+- name: Create proxy environment file
+  shell: |
+    echo "export http_proxy=http://194.5.192.226:8888" >> /etc/environment
+    echo "export https_proxy=http://194.5.192.226:8888" >> /etc/environment
+    echo "NO_PROXY=10.10.0.0/16,10.96.0.0/12,188.121.117.243,127.0.0.1,localhost,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local,188.121.117.174,188.121.117.243,188.121.118.247,188.121.119.68" >> /etc/environment
+  tags: k8s
+
+- name: Disable swap
+  command: swapoff -a
+  tags: k8s
+
+- name: Ensure swap is disabled in fstab
+  lineinfile:
+    path: /etc/fstab
+    regexp: '^.*swap.*$'
+    state: absent
+  tags: k8s
+
+- name: Load necessary kernel modules
+  copy:
+    dest: /etc/modules-load.d/k8s.conf
+    content: |
+      overlay
+      br_netfilter
+  tags: k8s
+
+- name: Apply sysctl settings
+  copy:
+    dest: /etc/sysctl.d/k8s.conf
+    content: |
+      net.bridge.bridge-nf-call-iptables = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.ipv4.ip_forward = 1
+  tags: k8s
+
+- name: Reload sysctl settings
+  command: sysctl --system
+  tags: k8s
+
+- name: Ensure keyring directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+  tags: k8s
+
+- name: Download and add Kubernetes GPG key
+  ansible.builtin.shell: |
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes.gpg 
+  args:
+    creates: /etc/apt/keyrings/kubernetes.gpg
+  tags: k8s
+
+- name: Add Kubernetes apt repository
+  ansible.builtin.shell: |
+    echo 'deb [signed-by=/etc/apt/keyrings/kubernetes.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+  tags: k8s
+
+# - name: Update apt cache
+#   apt:
+#     update_cache: yes
+#   tags: k8s
+#
+# - name: Install Kubernetes tools
+#   apt:
+#     name:
+#       - kubelet
+#       - kubeadm
+#       - kubectl
+#     state: present
+#     update_cache: true
+#   tags: k8s
+
+- name: Create an Empty file for Kubeadm configuring
+  copy:
+    content: ""
+    dest: /etc/kubernetes/kubeadm-config.yaml
+    force: no
+  tags: k8s
+
+# - name: Download images
+#   shell: sudo kubeadm config images pull --cri-socket=unix:///var/run/crio/crio.sock
+#   tags: k8s
+
+- name: Initialize the cluster
+  shell: sudo kubeadm init --cri-socket=unix:///var/run/crio/crio.sock --pod-network-cidr=10.10.0.0/16 --control-plane-endpoint=188.121.117.243:6443 --upload-certs --apiserver-advertise-address=188.121.119.68
+  when: inventory_hostname == groups['master'][0]
+  # environment:
+  #   http_proxy: "http://194.5.192.226:8888"
+  #   https_proxy: "http://194.5.192.226:8888"
+  #   no_proxy: 10.10.0.0/16,10.96.0.0/12,188.121.117.243,127.0.0.1,localhost,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local,188.121.117.174,188.121.117.243,188.121.118.247,188.121.119.68
+  tags: k8s
+
+- name: Create .kube directory
+  become_user: ubuntu
+  file:
+    path: $HOME/.kube
+    state: directory
+    mode: 0755
+  tags: k8s
+
+- name: Copy admin.conf to User's kube config
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/ubuntu/.kube/config
+    remote_src: yes
+    owner: ubuntu
+  when: inventory_hostname == groups['master'][0]
+  tags: k8s
+
+- name: Get kubeadm token
+  shell: kubeadm token list | awk 'NR==2 {print $1}'
+  register: token_result
+  changed_when: false
+  when: inventory_hostname == groups['master'][0]
+  tags: k8s
+
+- name: Get discovery-token-ca-cert-hash
+  shell: openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | \
+         openssl rsa -pubin -outform der 2>/dev/null | \
+         sha256sum | awk '{print $1}'
+  register: ca_hash_result
+  changed_when: false
+  when: inventory_hostname == groups['master'][0]
+  tags: k8s
+
+- name: Get certificate key
+  shell: kubeadm init phase upload-certs --upload-certs | tail -1
+  register: cert_key_result
+  changed_when: false
+  when: inventory_hostname == groups['master'][0]
+  tags: k8s
+
+- name: Set join variables as facts
+  set_fact:
+    kubeadm_token: "{{ token_result.stdout }}"
+    ca_cert_hash: "{{ ca_hash_result.stdout }}"
+    cert_key: "{{ cert_key_result.stdout }}"
+  when: inventory_hostname == groups['master'][0]
+  tags: k8s
+
+- name: Share join variables across hosts
+  set_fact:
+    kubeadm_token: "{{ hostvars[groups['master'][0]]['kubeadm_token'] }}"
+    ca_cert_hash: "{{ hostvars[groups['master'][0]]['ca_cert_hash'] }}"
+    cert_key: "{{ hostvars[groups['master'][0]]['cert_key'] }}"
+  when: inventory_hostname != groups['master'][0]
+  tags: k8s
+
+- debug:
+    msg: "Join token: {{ kubeadm_token }}, CA hash: {{ ca_cert_hash }}, Cert key: {{ cert_key }}"
+  when: inventory_hostname != groups['master'][0]
+
+- name: Join as control plane
+  shell: |
+    sudo kubeadm join {{ control_plane_endpoint }} \
+      --token {{ kubeadm_token }} \
+      --discovery-token-ca-cert-hash sha256:{{ ca_cert_hash }} \
+      --control-plane --certificate-key {{ cert_key }}
+  when: inventory_hostname != groups['master'][0]
+  tags: k8s
+
+- name: Allow workloads on control-plane nodes by removing taint
+  shell: |
+    kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+  when: inventory_hostname in groups['master']
+  delegate_to: "{{ groups['master'][0] }}"
+  tags: k8s
