@@ -3,6 +3,7 @@
   shell: |
     echo "export http_proxy=http://194.5.192.226:8888" >> /etc/environment
     echo "export https_proxy=http://194.5.192.226:8888" >> /etc/environment
+    echo "NO_PROXY=10.10.0.0/16,10.96.0.0/12,188.121.117.243,127.0.0.1,localhost,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local,188.121.117.174,188.121.117.243,188.121.118.247,188.121.119.68" >> /etc/environment
   tags: cri
 
 - name: Add CRI-O repository (OBS)

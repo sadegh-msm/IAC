@@ -31,6 +31,12 @@ variable "chosen_name" {
   default     = "24.04"
 }
 
+variable "chosen_network_name" {
+  type        = string
+  description = "The chosen name of network"
+  default     = "public210" //public202
+}
+
 # variable "chosen_plan_id" {
 #   type        = string
 #   default     = "g2-4-2-0"
@@ -38,12 +44,12 @@ variable "chosen_name" {
 
 variable "chosen_plan_id_k8s" {
   type        = string
-  default     = "g2-12-4-0"
+  default     = "g2-8-4-0"
 }
 
 variable "chosen_plan_id_ha" {
   type        = string
-  default     = "g2-4-2-0"
+  default     = "g6-2-2-0"
 }
 
 data "arvan_security_groups" "default_security_groups" {
@@ -69,7 +75,35 @@ data "arvan_networks" "terraform_network" {
   region = var.region
 }
 
+locals {
+  network_list = tolist(data.arvan_networks.terraform_network.networks)
+  chosen_network = try(
+    [for network in local.network_list : network
+    if network.name == var.chosen_network_name],
+    []
+  )
+}
+
+output "chosen_network" {
+  value = local.chosen_network
+}
+
+resource "arvan_network" "terraform_private_network" {
+  region      = var.region
+  name        = "tf_private_network"
+  dhcp_range = {
+    start = "10.255.255.100"
+    end   = "10.255.255.200"
+  }
+  dns_servers    = ["8.8.8.8", "1.1.1.1"]
+  enable_dhcp    = true
+  enable_gateway = true
+  cidr           = "10.255.255.0/24"
+  gateway_ip     = "10.255.255.1"
+}
+
 resource "arvan_abrak" "masters" {
+  depends_on = [arvan_network.terraform_private_network]
   count        = 3
   region       = var.region
   name         = "master_${count.index + 1}"
@@ -77,6 +111,12 @@ resource "arvan_abrak" "masters" {
   flavor_id    = local.selected_plan_k8s.id
   ssh_key_name = "macbook"
   disk_size    = 25
+  networks = [
+    {
+      network_id = arvan_network.terraform_private_network.network_id
+    }
+  ]
+
   security_groups = [data.arvan_security_groups.default_security_groups.groups[0].id]
   timeouts {
     create = "1h30m"
@@ -87,6 +127,7 @@ resource "arvan_abrak" "masters" {
 }
 
 resource "arvan_abrak" "haproxy" {
+  depends_on = [arvan_network.terraform_private_network]
   timeouts {
     create = "1h30m"
     update = "2h"
@@ -100,6 +141,14 @@ resource "arvan_abrak" "haproxy" {
   image_id     = local.chosen_image.id
   flavor_id    = local.selected_plan_ha.id
   disk_size    = 25
+  networks = [
+    {
+      network_id = local.chosen_network[0].network_id
+    },
+    {
+      network_id = arvan_network.terraform_private_network.network_id
+    }
+  ]
   security_groups = [data.arvan_security_groups.default_security_groups.groups[0].id]
 }
 

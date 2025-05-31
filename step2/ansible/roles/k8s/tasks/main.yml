@@ -12,12 +12,12 @@
     state: restarted
   tags: k8s
 
-- name: Create proxy environment file
-  shell: |
-    echo "export http_proxy=http://194.5.192.226:8888" >> /etc/environment
-    echo "export https_proxy=http://194.5.192.226:8888" >> /etc/environment
-    echo "NO_PROXY=10.10.0.0/16,10.96.0.0/12,188.121.117.243,127.0.0.1,localhost,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local,188.121.117.174,188.121.117.243,188.121.118.247,188.121.119.68" >> /etc/environment
-  tags: k8s
+# - name: Create proxy environment file
+#   shell: |
+#     echo "export http_proxy=http://194.5.192.226:8888" >> /etc/environment
+#     echo "export https_proxy=http://194.5.192.226:8888" >> /etc/environment
+#     echo "NO_PROXY=10.10.0.0/16,10.96.0.0/12,188.121.117.243,127.0.0.1,localhost,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local,188.121.117.174,188.121.117.243,188.121.118.247,188.121.119.68" >> /etc/environment
+#   tags: k8s
 
 - name: Disable swap
   command: swapoff -a
@@ -60,30 +60,30 @@
 
 - name: Download and add Kubernetes GPG key
   ansible.builtin.shell: |
-    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes.gpg 
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
   args:
     creates: /etc/apt/keyrings/kubernetes.gpg
   tags: k8s
 
 - name: Add Kubernetes apt repository
   ansible.builtin.shell: |
-    echo 'deb [signed-by=/etc/apt/keyrings/kubernetes.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+    echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
   tags: k8s
 
-# - name: Update apt cache
-#   apt:
-#     update_cache: yes
-#   tags: k8s
-#
-# - name: Install Kubernetes tools
-#   apt:
-#     name:
-#       - kubelet
-#       - kubeadm
-#       - kubectl
-#     state: present
-#     update_cache: true
-#   tags: k8s
+- name: Update apt cache
+  apt:
+    update_cache: yes
+  tags: k8s
+
+- name: Install Kubernetes tools
+  apt:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+    state: present
+    update_cache: true
+  tags: k8s
 
 - name: Create an Empty file for Kubeadm configuring
   copy:
@@ -92,17 +92,13 @@
     force: no
   tags: k8s
 
-# - name: Download images
-#   shell: sudo kubeadm config images pull --cri-socket=unix:///var/run/crio/crio.sock
-#   tags: k8s
+- name: Download images
+  shell: sudo kubeadm config images pull --cri-socket=unix:///var/run/crio/crio.sock
+  tags: k8s
 
 - name: Initialize the cluster
-  shell: sudo kubeadm init --cri-socket=unix:///var/run/crio/crio.sock --pod-network-cidr=10.10.0.0/16 --control-plane-endpoint=188.121.117.243:6443 --upload-certs --apiserver-advertise-address=188.121.119.68
+  shell: sudo kubeadm init --cri-socket=unix:///var/run/crio/crio.sock --pod-network-cidr=10.10.0.0/16 --control-plane-endpoint=188.121.118.67:6443 --upload-certs --apiserver-advertise-address=10.255.255.105
   when: inventory_hostname == groups['master'][0]
-  # environment:
-  #   http_proxy: "http://194.5.192.226:8888"
-  #   https_proxy: "http://194.5.192.226:8888"
-  #   no_proxy: 10.10.0.0/16,10.96.0.0/12,188.121.117.243,127.0.0.1,localhost,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local,188.121.117.174,188.121.117.243,188.121.118.247,188.121.119.68
   tags: k8s
 
 - name: Create .kube directory
