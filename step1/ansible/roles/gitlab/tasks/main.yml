@@ -3,7 +3,8 @@
   lineinfile:
     path: /etc/systemd/resolved.conf
     regexp: '^#?DNS='
-    line: 'DNS=178.22.122.100 185.51.200.2'
+    line: "DNS={{ dns | join(' ') }}"
+  when: dns is defined and dns | length > 0
   tags: gitlab
 
 - name: Restart systemd-resolved to apply DNS changes
@@ -41,7 +42,7 @@
 
 - name: Pull GitLab docker image
   docker_image:
-    name: docker.arvancloud.ir/gitlab/gitlab-ee
+    name: docker.arvancloud.ir/gitlab/gitlab-ce
     tag: latest
     source: pull
   tags: gitlab
@@ -54,7 +55,7 @@
 
 - name: Pull GitLab Runner docker image
   docker_image:
-    name: docker.arvancloud.ir/gitlab/gitlab-runner
+    name: docker.arvancloud.ir/sadegh81/gitlabrunner-dind:latest
     source: pull
   tags: runner
 
@@ -67,7 +68,7 @@
 - name: Run GitLab container
   docker_container:
     name: gitlab
-    image: docker.arvancloud.ir/gitlab/gitlab-ee:latest
+    image: docker.arvancloud.ir/gitlab/gitlab-ce:latest
     state: started
     restart_policy: always
     networks:
@@ -90,10 +91,10 @@
   tags: gitlab
 
 - name: Get GitLab initial root password
-  command: >
-    docker exec gitlab grep 'Password:' /etc/gitlab/initial_root_password
+  command: docker exec gitlab grep 'Password:' /etc/gitlab/initial_root_password
   register: gitlab_root_password
   changed_when: false
+  when: not gitlab_root_password is defined
   tags: gitlab
 
 - name: Write GitLab root password to file
@@ -101,6 +102,7 @@
     dest: /tmp/gitlab-root-password.txt
     content: "{{ gitlab_root_password.stdout }}"
     mode: '0600'
+  when: gitlab_root_password is defined
   tags: gitlab
 
 - name: Run GitLab Registry container
@@ -115,39 +117,26 @@
       - "5000:5000"
     volumes:
       - /srv/registry/data:/var/lib/registry
-  tags: registry
+  tags: registery
 
 - name: Run GitLab Runner container
   docker_container:
     name: gitlab-runner
-    image: docker.arvancloud.ir/gitlab/gitlab-runner:latest
+    image: docker.arvancloud.ir/sadegh81/gitlabrunner-dind:latest
     state: started
+    privileged: true
     restart_policy: always
     networks:
       - name: gitlab-network
     volumes:
       - /srv/gitlab-runner/config:/etc/gitlab-runner
-    command: ["run", "--user=gitlab-runner", "--working-directory=/home/gitlab-runner"]
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: ["gitlab-runner", "run", "--user=gitlab-runner", "--working-directory=/home/gitlab-runner"]
   tags: runner
 
-# - name: Register GitLab Runner
-#   shell: >
-#     docker exec gitlab-runner gitlab-runner register --non-interactive
-#       --url http://{{ ansible_host }}
-#       --registration-token {{ gitlab_runner_token }}
-#       --executor docker
-#       --docker-image alpine:latest
-#       --description "ansible-registered-runner"
-#       --tag-list "docker,linux"
-#       --run-untagged=true
-#       --locked=false
-#   args:
-#     creates: /srv/gitlab-runner/config/config.toml
-#   tags: runner
-#   when: gitlab_runner_token != "undefined"
 - name: Register GitLab Runner inside Docker container
   shell: >
-    docker exec gitlab-runner gitlab-runner register --non-interactive --url http://{{ ansible_host }} --registration-token {{ gitlab_runner_token }} --executor docker --docker-image alpine:latest --description "ansible-registered-runner" --tag-list "docker,linux" --run-untagged=true --locked=false
+    docker exec gitlab-runner gitlab-runner register --non-interactive --url http://{{ ansible_host }} --registration-token {{ gitlab_runner_token }} --executor docker --docker-image docker:24.0.5 --docker-tlsverify=false --docker-helper-image docker.arvancloud.ir/gitlab/gitlab-runner-helper:x86_64-v17.6.0 --docker-privileged  --description "ansible-registered-runner" --tag-list "k8s-runner" --run-untagged=true --locked=false --docker-volumes /var/run/docker.sock:/var/run/docker.sock --docker-volumes /certs/client --docker-volumes /cache --docker-pull-policy if-not-present --docker-dns 178.22.122.100 --docker-dns 185.51.200.2
   args:
     creates: /srv/gitlab-runner/config/config.toml
   tags: runner
