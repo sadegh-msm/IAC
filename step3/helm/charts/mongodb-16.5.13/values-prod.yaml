@@ -1,0 +1,51 @@
+global:
+  imageRegistry: "docker.arvancloud.ir"
+  security:
+    allowInsecureImages: true
+
+image:
+  repository: bitnami/mongodb
+  tag: 8.0.4-debian-12-r0
+
+architecture: standalone
+useStatefulSet: true
+
+auth:
+  enabled: false
+  rootUser: root
+  usernames: 
+    - url-shortner
+  databases: 
+    - urlshortener
+replicaCount: 1
+updateStrategy:
+  type: RollingUpdate
+
+resources:
+  requests:
+    cpu: 1000m
+    memory: 1000Mi
+  limits:
+    cpu: 1000m
+    memory: 1000Mi
+
+containerPorts:
+  mongodb: 27017
+
+service:
+  nameOverride: "mongodb"
+  type: ClusterIP
+  portName: mongodb
+  ports:
+    mongodb: 27017
+ 
+persistence:
+  enabled: true
+  name: "data"
+  accessModes:
+    - ReadWriteOnce
+  size: 2Gi
+  mountPath: /bitnami/mongodb
+ 
+metrics:
+  enabled: false

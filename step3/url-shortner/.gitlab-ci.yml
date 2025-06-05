@@ -1,0 +1,24 @@
+stages:
+  - build
+  - deploy
+
+include:
+  - local: '.gitlab-ci-files/build.yaml' 
+  - local: '.gitlab-ci-files/deploy.yaml'
+
+
+variables:
+  TAG: v${CI_PIPELINE_IID}
+  PROD_NAMESPACE: prod
+  STAGE_NAMESPACE: stage
+  FF_ENABLE_JOB_CLEANUP: 'true'
+  FF_USE_FASTZIP: "true"
+  ARTIFACT_COMPRESSION_LEVEL: "fast"
+  CACHE_COMPRESSION_LEVEL: "fast"
+  PUBLIC_IMAGE_REPO_URL: "docker.arvancloud.ir"
+
+before_script:
+  - if [ "$CI_COMMIT_REF_NAME" == "main" ]; then
+           REPO_DIR="prod";
+    fi
+

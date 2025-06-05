@@ -1,0 +1,28 @@
+global:
+  security:
+    allowInsecureImages: true
+  imageRegistry: "docker.arvancloud.ir"
+
+architecture: standalone
+auth:
+  enabled: false
+  sentinel: false
+
+commonConfiguration: |-
+  appendonly yes
+  save "43200 0"  
+  maxmemory 5gb
+
+master:
+  kind: Deployment
+  persistence:
+    enabled: true
+    size: 1Gi
+  resources:
+    limits: 
+     cpu: 100m
+     memory: 100Mi
+    requests:
+      cpu: 100m
+      memory: 100Mi 
+

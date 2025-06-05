@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mongo-backup
+  namespace: url-shortner
+spec:
+  schedule: "0 2 * * *"  # Every day at 2:00 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: mongo-backup
+              image: docker.arvancloud.ir/sadegh81/mongo-aws:latest
+              imagePullPolicy: IfNotPresent
+              envFrom:
+                - configMapRef:
+                    name: mongo-backup-config
+                - secretRef:
+                    name: arvan-s3-credentials
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  TIMESTAMP=$(date +%F-%H-%M-%S)
+                  BACKUP_DIR="/tmp/mongodump-$TIMESTAMP"
+                  mkdir -p "$BACKUP_DIR"
+                  mongodump --uri="$MONGO_HOST" --out="$BACKUP_DIR"
+                  tar -czf "/tmp/mongodump-$TIMESTAMP.tar.gz" -C /tmp "mongodump-$TIMESTAMP"
+                  aws --endpoint-url https://s3.ir-thr-at1.arvanstorage.ir s3 cp "/tmp/mongodump-$TIMESTAMP.tar.gz" s3://"$BUCKET_NAME"/
+          restartPolicy: OnFailure

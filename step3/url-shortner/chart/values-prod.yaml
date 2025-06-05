@@ -1,0 +1,72 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: url-shortner
+  namespace: flux-system
+spec:
+  interval: 1m
+  timeout: 2m
+  chart:
+    spec:
+      chart: chart
+      version: "1.17.0"
+      reconcileStrategy: ChartVersion
+      sourceRef:
+        kind: GitRepository
+        name: url-shortner
+        namespace: flux-system
+      interval: 3m
+
+  releaseName: url-shortner
+  targetNamespace: url-shortner
+  storageNamespace: url-shortner
+  suspend: false
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    replicaCount: 1
+
+    urlShortnerPort: "80"
+    mongoDbHost: mongodb:27017 
+    redisHost: redis-master:6379
+    mongoDbName: urlshortener
+    mongoCollection: urls
+
+    image:
+      repository: 94.101.184.72:5000/root/url-shortner/prod
+      pullPolicy: IfNotPresent
+      tag: "v12"
+
+    imagePullSecrets: 
+      - name: gitlab-pull-secret
+
+    service:
+      type: ClusterIP
+      port: 80
+
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: http
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: http
+
+    envFrom:
+      - configMapRef:
+          name: url-shortner-chart
+

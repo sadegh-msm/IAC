@@ -1,0 +1,19 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: url-shortner
+  namespace: flux-system
+spec:
+  interval: 3m0s
+  url: ssh://git@94.101.184.72:2222/root/url-shortner
+  ref:
+    branch: main
+  secretRef:
+    name: urlshortner-auth
+  # ignore: |
+  #   # exclude all
+  #   /*
+  #   # include charts directory
+  #   !/helm/charts/*
+  #   !/flux-manifests/*

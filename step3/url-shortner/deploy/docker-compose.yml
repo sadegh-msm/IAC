@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # redis:
+  #   image: redis:7
+  #   container_name: redis
+  #   ports:
+  #     - "6379:6379"
+  #
+  # mongo:
+  #   image: mongo:6
+  #   container_name: mongo
+  #   ports:
+  #     - "27017:27017"
+  #   volumes:
+  #     - mongo_data:/data/db
+
+  gitlab:
+    image: docker.arvancloud.ir/gitlab/gitlab-ce:latest
+    container_name: gitlab
+    hostname: gitlab.local
+    # platform: linux/arm64
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "22:22"
+    volumes:
+      - gitlab_config:/etc/gitlab
+      - gitlab_logs:/var/log/gitlab
+      - gitlab_data:/var/opt/gitlab
+    shm_size: '256m'
+
+  gitlab-runner:
+    image: docker.arvancloud.ir/gitlab/gitlab-runner:latest
+    container_name: gitlab-runner
+    restart: always
+    # platform: linux/arm64
+    depends_on:
+      - gitlab
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - gitlab_runner_config:/etc/gitlab-runner
+
+volumes:
+  mongo_data:
+  gitlab_config:
+  gitlab_logs:
+  gitlab_data:
+  gitlab_runner_config:
+

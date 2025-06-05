@@ -1,0 +1,54 @@
+---
+# template
+.deploy_prod:
+  script: &deploy_prod_definition
+  - apk update && apk add git
+  - mkdir -p ~/.ssh
+  - echo "$PRIVATE_KEY" > ~/.ssh/id_ed25519
+  - echo "$PUBLIC_KEY" > ~/.ssh/id_ed25519.pub
+  - chmod 600 ~/.ssh/id_ed25519
+  - chmod 644 ~/.ssh/id_ed25519.pub
+  - echo -e "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+  - rm -rf /tmp/url-shortner-${CI_PIPELINE_ID}-${CI_JOB_ID} || true
+  - cd /tmp
+  - git clone ${URL}/root/url-shortner.git url-shortner-${CI_PIPELINE_ID}-${CI_JOB_ID}
+  - cd url-shortner-${CI_PIPELINE_ID}-${CI_JOB_ID}/${SRC_PATH}
+  - 'echo "Replacing image tag and chart version to ${CI_PIPELINE_IID} and ${CHART_VERSION}"'
+  # - 'sed -i -E "s@(tag: \")[^\"]+@\1${CI_PIPELINE_IID}@" ${DEPLOYMENT_FILE1}'
+  # - 'sed -i -E "s@(version: \")[^\"]+@\1${CHART_VERSION}@" ${DEPLOYMENT_FILE1}'
+  - 'sed -i -E "s@(tag: \\\")v?[^\"]+@\\1v${CI_PIPELINE_IID}@" ${DEPLOYMENT_FILE1}'
+  - 'sed -i -E "s@(version: \\\")[^\"]+@\\1${CHART_VERSION}@" ${DEPLOYMENT_FILE1}'
+  - echo "Diff:"
+  - git diff
+  - if [[ -z $(git diff --exit-code) ]]; then echo "Nothing to commit"; rm -rf /tmp/url-shortner-${CI_PIPELINE_ID}-${CI_JOB_ID} || true; exit; fi
+  - git config user.name "CI Bot"
+  - git config user.email "ci-bot@example.com"
+  - 'git commit -am "update ${DEPLOYMENT_FILE1}: image tag ${CI_PIPELINE_IID}, chart version ${CHART_VERSION}"'
+  - git pull --rebase
+  - git push ${URL}/root/url-shortner.git main
+  - export COMMIT_TIME=$(date +"%Y.%m.%d %H:%M:%S")
+  - 'echo "done"'
+  - rm -rf /tmp/url-shortner-${CI_PIPELINE_ID}-${CI_JOB_ID} || true
+
+url-shortner(prod): 
+  stage: deploy
+  when: manual
+  # needs: ["url-shortner"]
+  variables:
+    DEPLOYMENT_FILE1: "values-prod.yaml"
+    GIT_STRATEGY: none
+    SRC_PATH: "chart"
+  script: *deploy_prod_definition
+  environment:
+    name: production
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: on_success
+      changes:
+      - "cmd/**/*"
+      - "Dockerfile"
+      - "internal/**/*"
+      - "pkg/**/*"
+  tags:
+    - k8s-runner
+

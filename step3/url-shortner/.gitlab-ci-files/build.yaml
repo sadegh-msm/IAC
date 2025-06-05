@@ -1,0 +1,52 @@
+---
+# template
+.build_image:
+  script: &build_definition
+    - docker login -u ${REPO_USER} -p ${REPO_PASSWORD} ${REPO_URL}
+    - docker buildx build --tag ${REPO_URL}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/${REPO_DIR}:$TAG 
+        --tag ${REPO_URL}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/${REPO_DIR}:latest
+        --build-arg GOLANG_IMAGE_TAG=${GOLANG_IMAGE_TAG} --build-arg RUNTIME_IMAGE_TAG=${RUNTIME_IMAGE_TAG}
+        --build-arg GO_OS=${GO_OS} --build-arg GO_ARCH=${GO_ARCH}
+        --build-arg GC_FLAGS=${GC_FLAGS} --build-arg MAIN_PROJECT_ADDRESS=${MAIN_PROJECT_ADDRESS}
+        --build-arg PUBLIC_IMAGE_REPO_URL=${PUBLIC_IMAGE_REPO_URL}
+        --build-arg PROJECT_BINARY_NAME=${PROJECT_BINARY_NAME}
+        --build-arg GOPROXY=${GOPROXY}
+        --build-arg CGO_ENABLE=${CGO_ENABLE} .
+    - docker push ${REPO_URL}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/${REPO_DIR}:$TAG
+    - docker push ${REPO_URL}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/${REPO_DIR}:latest
+
+url-shortner:
+  stage: build
+  retry: 2
+  needs: []
+  variables:
+    PROJECT_BINARY_NAME: "url-shortner"
+    CGO_ENABLE: "0"
+    GO_OS: "linux"
+    GO_ARCH: "amd64"
+    GC_FLAGS: '"all=-Nl"' 
+    MAIN_PROJECT_ADDRESS: "cmd/main.go"
+    GOLANG_IMAGE_TAG: "1.23.1"
+    RUNTIME_IMAGE_TAG: "3.20"
+    GOPROXY: '"https://goproxy.io,direct"'
+  script:
+    - *build_definition
+    - env |egrep TAG ; echo "$TAG"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: on_success
+      changes:
+      - "cmd/**/*"
+      - "Dockerfile"
+      - "internal/**/*"
+      - "pkg/**/*"
+    - if: $CI_COMMIT_BRANCH == "develop"
+      when: on_success
+      changes:
+      - "cmd/**/*"
+      - "Dockerfile"
+      - "internal/**/*"
+      - "pkg/**/*"
+  tags:
+    - k8s-runner
+
