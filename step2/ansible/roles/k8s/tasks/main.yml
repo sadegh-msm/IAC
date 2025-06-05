@@ -39,32 +39,32 @@
     mode: '0755'
   tags: k8s
 
-# - name: Download and add Kubernetes GPG key
-#   shell: |
-#     sudo curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-#   args:
-#     creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-#   tags: k8s
-#
-# - name: Add Kubernetes apt repository
-#   ansible.builtin.shell: |
-#     echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
-#   tags: k8s
-#
-# - name: Update apt cache
-#   apt:
-#     update_cache: yes
-#   tags: k8s
-#
-# - name: Install Kubernetes tools
-#   apt:
-#     name:
-#       - kubelet
-#       - kubeadm
-#       - kubectl
-#     state: present
-#     update_cache: true
-#   tags: k8s
+- name: Download and add Kubernetes GPG key
+  shell: |
+    sudo curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  args:
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  tags: k8s
+
+- name: Add Kubernetes apt repository
+  ansible.builtin.shell: |
+    echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+  tags: k8s
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+  tags: k8s
+
+- name: Install Kubernetes tools
+  apt:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+    state: present
+    update_cache: true
+  tags: k8s
 
 - name: Create an Empty file for Kubeadm configuring
   copy:
@@ -83,11 +83,6 @@
     path: /etc/kubernetes/admin.conf
   register: kube_init_status
   tags: k8s
-
-# - name: Initialize the cluster
-#   shell: sudo kubeadm init --cri-socket=unix:///var/run/crio/crio.sock --pod-network-cidr=10.10.0.0/16 --control-plane-endpoint=94.101.185.196:6443 --upload-certs --apiserver-advertise-address=10.255.255.105
-#   when: inventory_hostname == groups['master'][0]
-#   tags: k8s
 
 - name: Ensure /etc/kubernetes directory exists
   file:
