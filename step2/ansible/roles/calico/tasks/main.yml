@@ -1,4 +1,4 @@
-- name: Download Calico custom resources (default installation)
+- name: Download Calico custom resources
   get_url:
     url: https://raw.githubusercontent.com/projectcalico/calico/v3.28.3/manifests/custom-resources.yaml
     dest: /tmp/custom-resources.yaml
@@ -6,15 +6,21 @@
   environment:
     http_proxy: ""
     https_proxy: ""
-    no_proxy: 127.0.0.1,localhost,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local
   when: inventory_hostname == groups['master'][0]
   tags: calico
 
-- name: Set CALICO_IPV4POOL_CIDR to 10.244.0.0/16
+- name: Set CALICO_IPV4POOL_CIDR to {{ pod_network_cidr }}
   replace:
     path: /tmp/custom-resources.yaml
     regexp: 'cidr: .*'
-    replace: 'cidr: 10.10.0.0/16'
+    replace: 'cidr: {{ pod_network_cidr }}'
+  when: inventory_hostname == groups['master'][0]
+  tags: calico
+
+- name: Check if Calico operator was already applied
+  stat:
+    path: /var/lib/calico-operator-applied.marker
+  register: calico_operator_marker
   when: inventory_hostname == groups['master'][0]
   tags: calico
 
@@ -24,14 +30,17 @@
     KUBECONFIG: /etc/kubernetes/admin.conf
     http_proxy: ""
     https_proxy: ""
-    no_proxy: 127.0.0.1,localhost,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local
-  when: inventory_hostname == groups['master'][0]
+  when:
+    - inventory_hostname == groups['master'][0]
+    - not calico_operator_marker.stat.exists
+  register: calico_operator_applied
   tags: calico
 
-- name: Apply Calico custom resources
-  command: kubectl apply -f /tmp/custom-resources.yaml
-  environment:
-    KUBECONFIG: /etc/kubernetes/admin.conf
-  when: inventory_hostname == groups['master'][0]
+- name: Mark Calico operator as applied
+  file:
+    path: /var/lib/calico-operator-applied.marker
+    state: touch
+  when:
+    - inventory_hostname == groups['master'][0]
+    - calico_operator_applied is defined
   tags: calico
-

@@ -7,7 +7,6 @@
   environment:
     http_proxy: ""
     https_proxy: ""
-    no_proxy: 127.0.0.1,localhost,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local
   when: inventory_hostname == groups['master'][0]
   tags: longhorn
 
@@ -19,26 +18,82 @@
   environment:
     http_proxy: ""
     https_proxy: ""
-    no_proxy: 127.0.0.1,localhost,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local
   when: inventory_hostname == groups['master'][0]
   tags: longhorn
 
-- name: Apply Longhorn iscsi manifest
-  command: kubectl apply -f /tmp/longhorn-iscsi-installation.yaml
+- name: Check if Longhorn namespace exists
+  shell: kubectl get ns {{ longhorn_namespace }} --no-headers
+  register: longhorn_ns
+  failed_when: false
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  when: inventory_hostname == groups['master'][0]
+  tags: longhorn
+
+- name: Create Longhorn namespace if not exists
+  command: kubectl create namespace {{ longhorn_namespace }}
+  when:
+    - inventory_hostname == groups['master'][0]
+    - longhorn_ns.rc != 0
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  tags: longhorn
+
+- name: Check if Longhorn was already applied
+  stat:
+    path: /var/lib/longhorn-applied.marker
+  register: longhorn_marker
+  tags: longhorn
+
+- name: Check if Longhorn iSCSI was already applied
+  stat:
+    path: /var/lib/longhorn-iscsi-applied.marker
+  register: longhorn_iscsi_marker
+  tags: longhorn
+
+- name: Apply Longhorn iSCSI manifest if not already applied
+  shell: kubectl apply -f /tmp/longhorn-iscsi-installation.yaml
+  args:
+    creates: /var/lib/longhorn-iscsi-applied.marker
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
     http_proxy: ""
     https_proxy: ""
-    no_proxy: 127.0.0.1,localhost,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local
-  when: inventory_hostname == groups['master'][0]
+  register: apply_iscsi
+  when:
+    - inventory_hostname == groups['master'][0]
+    - not longhorn_iscsi_marker.stat.exists
   tags: longhorn
 
-- name: Apply Longhorn manifest
-  command: kubectl apply -f /tmp/longhorn.yaml
+- name: Mark iSCSI manifest as applied
+  file:
+    path: /var/lib/longhorn-iscsi-applied.marker
+    state: touch
+  when:
+    - inventory_hostname == groups['master'][0]
+    - apply_iscsi.changed
+  tags: longhorn
+
+- name: Apply Longhorn manifest if not already applied
+  shell: kubectl apply -f /tmp/longhorn.yaml
+  args:
+    creates: /var/lib/longhorn-applied.marker
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
     http_proxy: ""
     https_proxy: ""
-    no_proxy: 127.0.0.1,localhost,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local
-  when: inventory_hostname == groups['master'][0]
+  register: apply_longhorn
+  when: 
+    - inventory_hostname == groups['master'][0]
+    - not longhorn_marker.stat.exists
+  tags: longhorn
+
+- name: Mark Longhorn manifest as applied
+  file:
+    path: /var/lib/longhorn-applied.marker
+    state: touch
+  when:
+    - inventory_hostname == groups['master'][0]
+    - apply_longhorn.changed
   tags: longhorn

@@ -1,26 +1,7 @@
 ---
-- name: Set Shecan DNS for systemd-resolved
-  lineinfile:
-    path: /etc/systemd/resolved.conf
-    regexp: '^#?DNS='
-    line: 'DNS='
-  tags: k8s
-
-- name: Restart systemd-resolved to apply DNS changes
-  service:
-    name: systemd-resolved
-    state: restarted
-  tags: k8s
-
-# - name: Create proxy environment file
-#   shell: |
-#     echo "export http_proxy=http://194.5.192.226:8888" >> /etc/environment
-#     echo "export https_proxy=http://194.5.192.226:8888" >> /etc/environment
-#     echo "NO_PROXY=10.10.0.0/16,10.96.0.0/12,188.121.117.243,127.0.0.1,localhost,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local,188.121.117.174,188.121.117.243,188.121.118.247,188.121.119.68" >> /etc/environment
-#   tags: k8s
-
-- name: Disable swap
+- name: Disable swap immediately
   command: swapoff -a
+  when: ansible_swaptotal_mb > 0
   tags: k8s
 
 - name: Ensure swap is disabled in fstab
@@ -58,32 +39,32 @@
     mode: '0755'
   tags: k8s
 
-- name: Download and add Kubernetes GPG key
-  ansible.builtin.shell: |
-    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-  args:
-    creates: /etc/apt/keyrings/kubernetes.gpg
-  tags: k8s
-
-- name: Add Kubernetes apt repository
-  ansible.builtin.shell: |
-    echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
-  tags: k8s
-
-- name: Update apt cache
-  apt:
-    update_cache: yes
-  tags: k8s
-
-- name: Install Kubernetes tools
-  apt:
-    name:
-      - kubelet
-      - kubeadm
-      - kubectl
-    state: present
-    update_cache: true
-  tags: k8s
+# - name: Download and add Kubernetes GPG key
+#   shell: |
+#     sudo curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+#   args:
+#     creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+#   tags: k8s
+#
+# - name: Add Kubernetes apt repository
+#   ansible.builtin.shell: |
+#     echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+#   tags: k8s
+#
+# - name: Update apt cache
+#   apt:
+#     update_cache: yes
+#   tags: k8s
+#
+# - name: Install Kubernetes tools
+#   apt:
+#     name:
+#       - kubelet
+#       - kubeadm
+#       - kubectl
+#     state: present
+#     update_cache: true
+#   tags: k8s
 
 - name: Create an Empty file for Kubeadm configuring
   copy:
@@ -92,30 +73,70 @@
     force: no
   tags: k8s
 
-- name: Download images
-  shell: sudo kubeadm config images pull --cri-socket=unix:///var/run/crio/crio.sock
+- name: Download container images if not already pulled
+  shell: sudo kubeadm config images list --cri-socket=unix:///var/run/crio/crio.sock | sudo xargs -n1 crictl images |  sudo grep -v 'IMAGE' || sudo kubeadm config images pull --cri-socket=unix:///var/run/crio/crio.sock
+  changed_when: false
+  tags: k8s
+
+- name: Check if cluster is already initialized
+  stat:
+    path: /etc/kubernetes/admin.conf
+  register: kube_init_status
+  tags: k8s
+
+# - name: Initialize the cluster
+#   shell: sudo kubeadm init --cri-socket=unix:///var/run/crio/crio.sock --pod-network-cidr=10.10.0.0/16 --control-plane-endpoint=94.101.185.196:6443 --upload-certs --apiserver-advertise-address=10.255.255.105
+#   when: inventory_hostname == groups['master'][0]
+#   tags: k8s
+
+- name: Ensure /etc/kubernetes directory exists
+  file:
+    path: /etc/kubernetes
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when:
+    - not kube_init_status.stat.exists
+  tags: k8s
+
+- name: Remove proxy environment variables from /etc/environment
+  become: yes
+  lineinfile:
+    path: /etc/environment
+    regexp: '^(http_proxy|https_proxy|no_proxy|HTTP_PROXY|HTTPS_PROXY|NO_PROXY)='
+    state: absent
   tags: k8s
 
 - name: Initialize the cluster
-  shell: sudo kubeadm init --cri-socket=unix:///var/run/crio/crio.sock --pod-network-cidr=10.10.0.0/16 --control-plane-endpoint=188.121.118.67:6443 --upload-certs --apiserver-advertise-address=10.255.255.105
-  when: inventory_hostname == groups['master'][0]
+  shell: kubeadm init --cri-socket=unix:///var/run/crio/crio.sock --pod-network-cidr={{ pod_network_cidr }} --control-plane-endpoint={{ control_plane_endpoint }}  --upload-certs --apiserver-advertise-address={{ advertise_private_ip }}
+  when:
+    - inventory_hostname == groups['master'][0]
+    - not kube_init_status.stat.exists
   tags: k8s
 
-- name: Create .kube directory
+- name: Create .kube directory for ubuntu
   become_user: ubuntu
   file:
-    path: $HOME/.kube
+    path: /home/ubuntu/.kube
     state: directory
-    mode: 0755
+    mode: '0755'
+  when:
+    - inventory_hostname == groups['master'][0]
+    - not kube_init_status.stat.exists
   tags: k8s
 
-- name: Copy admin.conf to User's kube config
+- name: Copy admin.conf to user's kube config
   copy:
     src: /etc/kubernetes/admin.conf
     dest: /home/ubuntu/.kube/config
     remote_src: yes
     owner: ubuntu
-  when: inventory_hostname == groups['master'][0]
+    group: ubuntu
+    mode: '0644'
+  when:
+    - inventory_hostname == groups['master'][0]
+    - not kube_init_status.stat.exists
   tags: k8s
 
 - name: Get kubeadm token
@@ -161,18 +182,27 @@
     msg: "Join token: {{ kubeadm_token }}, CA hash: {{ ca_cert_hash }}, Cert key: {{ cert_key }}"
   when: inventory_hostname != groups['master'][0]
 
+- name: Check if node is already part of cluster
+  stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: kubelet_conf_stat
+  tags: k8s
+
 - name: Join as control plane
   shell: |
     sudo kubeadm join {{ control_plane_endpoint }} \
       --token {{ kubeadm_token }} \
       --discovery-token-ca-cert-hash sha256:{{ ca_cert_hash }} \
       --control-plane --certificate-key {{ cert_key }}
-  when: inventory_hostname != groups['master'][0]
+  when:
+    - inventory_hostname != groups['master'][0]
+    - not kubelet_conf_stat.stat.exists
   tags: k8s
 
-- name: Allow workloads on control-plane nodes by removing taint
-  shell: |
-    kubectl taint nodes --all node-role.kubernetes.io/control-plane-
-  when: inventory_hostname in groups['master']
+- name: Allow workloads on control-plane nodes
+  command: kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
+  changed_when: false
   delegate_to: "{{ groups['master'][0] }}"
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
   tags: k8s
