@@ -1,0 +1,53 @@
+apiVersion: database.sadegh.msm/v1alpha1
+kind: MongoDBCluster
+metadata:
+  labels:
+    app.kubernetes.io/name: mongo-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: mongodbcluster-sample
+  namespace: default
+spec:
+  replicaSetCount: 3 # number of shards
+  replicaSetSize: 5 # number of replica in shard
+  mongosCount: 3
+  configServerCount: 5
+  storageSize: "2Gi"
+  storageClass: "fast-disks"
+  version: "7"
+
+  backup:
+    enabled: true
+    schedule: "0 1 * * *"
+    storageEndpoint: "https://s3.ir-thr-at1.arvanstorage.ir"
+    bucket: "mongo-backups"
+    secretRef:
+      name: arvan-s3-secret
+      namespace: default
+
+  sharding:
+    enabled: true
+    database: mydb
+    collections:  mydb.users
+    key: userId
+
+# ---
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: arvan-s3-secret
+#   namespace: default
+# type: Opaque
+# data:
+#   accessKey: BASE64_ENCODED_ACCESS_KEY
+#   secretKey: BASE64_ENCODED_SECRET_KEY
+#
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: arvan-s3-secret
+  namespace: default
+type: Opaque
+data:
+  accessKey: ZWU4MmFkMjktOWJlYy00MGY3LWE2NGMtZDg1NDM5MGM1MWEy
+  secretKey: MjRlNjNmMzNjNTI1NWEzODYyZjBlN2Y4M2Q2ZDM3ZDUxOWUyYzU1NDg5Yjg1NWY1ZGJiYTdiYzViNDFhNDVjNA==
