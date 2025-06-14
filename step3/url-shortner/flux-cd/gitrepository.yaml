@@ -11,9 +11,3 @@ spec:
     branch: main
   secretRef:
     name: urlshortner-auth
-  # ignore: |
-  #   # exclude all
-  #   /*
-  #   # include charts directory
-  #   !/helm/charts/*
-  #   !/flux-manifests/*
