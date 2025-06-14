@@ -30,17 +30,6 @@ spec:
     collections:  mydb.users
     key: userId
 
-# ---
-# apiVersion: v1
-# kind: Secret
-# metadata:
-#   name: arvan-s3-secret
-#   namespace: default
-# type: Opaque
-# data:
-#   accessKey: BASE64_ENCODED_ACCESS_KEY
-#   secretKey: BASE64_ENCODED_SECRET_KEY
-#
 ---
 apiVersion: v1
 kind: Secret
@@ -49,5 +38,6 @@ metadata:
   namespace: default
 type: Opaque
 data:
-  accessKey: ZWU4MmFkMjktOWJlYy00MGY3LWE2NGMtZDg1NDM5MGM1MWEy
-  secretKey: MjRlNjNmMzNjNTI1NWEzODYyZjBlN2Y4M2Q2ZDM3ZDUxOWUyYzU1NDg5Yjg1NWY1ZGJiYTdiYzViNDFhNDVjNA==
+  accessKey: BASE64_ENCODED_ACCESS_KEY
+  secretKey: BASE64_ENCODED_SECRET_KEY
+
