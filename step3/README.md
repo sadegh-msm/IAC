@@ -35,7 +35,7 @@ Shorten a URL with optional expiration time.
 ```json
 {
   "url": "https://example.com",
-  "expire": 60  // Expire in minutes
+  "expire": 60
 }
 ````
 
@@ -187,7 +187,104 @@ curl -X DELETE http://localhost:80/<short_id>
 
 ---
 
-Here's a comprehensive `README.md` for **Step 4: Deploying to Kubernetes** using **Helm charts** for MongoDB and Redis, along with a custom Helm chart or Kustomize overlay for the URL shortener app.
+## Indexing Strategies and Caching Logic
+
+This service leverages **MongoDB for persistence** and **Redis for caching** to efficiently serve short URLs. Below are the strategies implemented to optimize lookup performance, TTL handling, and minimize DB load.
+
+---
+
+### MongoDB Indexing Strategy
+
+The MongoDB collection used for storing shortened URLs benefits from the following indexing strategies:
+
+#### Primary `_id` Index
+
+* Field: `_id` (i.e., the generated short hash)
+* Usage: Efficient lookups when resolving or deleting a shortened URL.
+* Benefit: This is a **unique primary key** in MongoDB and ensures O(1) performance when resolving.
+
+#### TTL Index on `expire_at`
+
+To automatically clean up expired URLs from the database, a **TTL (Time-To-Live) index** is created on the `expire_at` field.
+
+```bash
+db.urls.createIndex({ "expire_at": 1 }, { expireAfterSeconds: 0 })
+```
+
+* Field: `expire_at`
+* Usage: Automatic deletion of expired documents.
+* Benefit: Prevents long-term buildup of expired URLs without manual intervention.
+
+> ⚠️ **Note:** Ensure this TTL index is created during your MongoDB initialization or via migration logic.
+
+---
+
+### Redis Caching Logic
+
+To reduce latency and database reads for frequently accessed URLs, Redis is used as a cache layer.
+
+#### Key Format
+
+```plaintext
+short:<hash> → <original_url>
+```
+
+* Example: `short:abc123 → https://example.com/foo`
+
+#### Cache Set Logic (`POST /shorten`)
+
+When a new shortened URL is created:
+
+* It's stored in MongoDB.
+* Simultaneously, it's added to Redis with the same expiration duration (`expire` in minutes).
+
+```go
+RedisClient.Set(Ctx, "short:"+id, req.URL, time.Duration(req.Expire)*time.Minute)
+```
+
+#### Cache Read & Write Back (`GET /:hsh`)
+
+* When resolving a URL:
+
+  1. Redis is checked first.
+  2. If the key is not found (`redis.Nil`), it falls back to MongoDB.
+  3. If found in MongoDB, the result is **re-cached in Redis** with the remaining TTL (`time.Until(expireAt)`).
+
+This design follows the **lazy caching** pattern and ensures:
+
+* Low latency for popular links.
+* Cache rehydration on demand.
+* Redis keys auto-expire like the database TTL.
+
+---
+
+### Deletion Behavior
+
+When a user deletes a shortened URL via `DELETE /:hsh`:
+
+* MongoDB removes the document.
+* Redis is updated to **remove the cache entry** (if any).
+
+```go
+MongoCol.DeleteOne(...)
+RedisClient.Del(...)
+```
+
+---
+
+### Consistency Model
+
+This setup follows **eventual consistency** between Redis and MongoDB:
+
+| Operation       | MongoDB         | Redis           |
+| --------------- | --------------- | --------------- |
+| Create (POST)   | ✅               | ✅               |
+| Resolve (GET)   | ✅ (fallback)    | ✅               |
+| Delete (DELETE) | ✅               | ✅               |
+| Expire          | ✅ via TTL index | ✅ via Redis TTL |
+
+This ensures that reads are fast, writes are reliable, and expired content is removed from both storage and cache over time.
+
 
 ---
 

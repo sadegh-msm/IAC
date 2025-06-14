@@ -1,8 +1,54 @@
 # mongo-operator
-// TODO(user): Add simple overview of use/purpose
+
+## Overview
+The mongo-operator is a Kubernetes Operator built with Kubebuilder to manage production-grade MongoDB clusters. It supports automated deployment of replica sets, sharded clusters, and scheduled backups to S3-compatible storage (e.g., ArvanCloud).
+
+This operator manages complex MongoDB topologies using a single MongoDBCluster custom resource, making cluster operations declarative, reproducible, and cloud-native.
+
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+The mongo-operator automates the lifecycle of MongoDB clusters on Kubernetes by abstracting:
+
+- Replica set and sharded cluster creation
+- Mongos and config server orchestration
+- Persistent storage setup
+- Periodic database backups to S3-compatible buckets (e.g., ArvanCloud)
+- Transparent support for enabling MongoDB sharding on specific databases and collections
+
+<img src="../../resources/shard_split.png" width="580" height="350" />
+
+Example CRD:
+```yaml
+apiVersion: database.sadegh.msm/v1alpha1
+kind: MongoDBCluster
+metadata:
+  name: mongodbcluster-sample
+  namespace: default
+spec:
+  replicaSetCount: 3
+  replicaSetSize: 5
+  mongosCount: 3
+  configServerCount: 5
+  storageSize: "2Gi"
+  storageClass: "fast-disks"
+  version: "7"
+
+  backup:
+    enabled: true
+    schedule: "0 1 * * *"
+    storageEndpoint: "https://s3.ir-thr-at1.arvanstorage.ir"
+    bucket: "mongo-backups"
+    secretRef:
+      name: arvan-s3-secret
+      namespace: default
+
+  sharding:
+    enabled: true
+    database: mydb
+    collections: mydb.users
+    key: userId
+
+```
 
 ## Getting Started
 
@@ -16,12 +62,8 @@
 **Build and push your image to the location specified by `IMG`:**
 
 ```sh
-make docker-build docker-push IMG=<some-registry>/mongo-operator:tag
+make docker-build docker-push IMG=sadegh81/mongo-operator:latest
 ```
-
-**NOTE:** This image ought to be published in the personal registry you specified.
-And it is required to have access to pull the image from the working environment.
-Make sure you have the proper permission to the registry if the above commands don’t work.
 
 **Install the CRDs into the cluster:**
 
@@ -32,11 +74,8 @@ make install
 **Deploy the Manager to the cluster with the image specified by `IMG`:**
 
 ```sh
-make deploy IMG=<some-registry>/mongo-operator:tag
+make deploy IMG=sadegh81/mongo-operator:latest
 ```
-
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
-privileges or be logged in as admin.
 
 **Create instances of your solution**
 You can apply the samples (examples) from the config/sample:
@@ -45,7 +84,8 @@ You can apply the samples (examples) from the config/sample:
 kubectl apply -k config/samples/
 ```
 
->**NOTE**: Ensure that the samples has default values to test it out.
+<img src="../../resources/mongo_cluster_pods.png" width="580" height="350" />
+
 
 ### To Uninstall
 **Delete the instances (CRs) from the cluster:**
@@ -66,56 +106,73 @@ make uninstall
 make undeploy
 ```
 
-## Project Distribution
+### Backup Configuration
 
-Following the options to release and provide this solution to the users.
-
-### By providing a bundle with all YAML files
-
-1. Build the installer for the image built and published in the registry:
-
-```sh
-make build-installer IMG=<some-registry>/mongo-operator:tag
+To enable backups to Arvan S3, create the following secret:
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: arvan-s3-secret
+  namespace: default
+type: Opaque
+data:
+  accessKey: BASE64_ENCODED_ACCESS_KEY
+  secretKey: BASE64_ENCODED_SECRET_KEY
 ```
+Backups will run as a CronJob inside the cluster at the specified schedule (spec.backup.schedule) using mongodump. The backup tarball is uploaded to the specified bucket on ArvanCloud.
 
-**NOTE:** The makefile target mentioned above generates an 'install.yaml'
-file in the dist directory. This file contains all the resources built
-with Kustomize, which are necessary to install this project without its
-dependencies.
+<img src="../../resources/mongo_cluster_backup.png" width="580" height="350" />
 
-2. Using the installer
 
-Users can just run 'kubectl apply -f <URL for YAML BUNDLE>' to install
-the project, i.e.:
+## ** Operator Architecture & Backup Workflow **
 
-```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/mongo-operator/<tag or branch>/dist/install.yaml
-```
+### a) **Operator Architecture**
 
-### By providing a Helm Chart
+Include an architectural diagram or at least describe the components:
 
-1. Build the chart using the optional helm plugin
+* **Custom Resource Definition (CRD)**
+  Describes a MongoDBCluster: shard count, replica size, version, backup, etc.
 
-```sh
-kubebuilder edit --plugins=helm/v1-alpha
-```
+* **Controller (Reconciler)**
+  Watches MongoDBCluster objects and creates:
 
-2. See that a chart was generated under 'dist/chart', and users
-can obtain this solution from there.
+  * StatefulSets for config servers, shards, and mongos
+  * Services for discovery
+  * CronJobs for scheduled backups
+  * Initialization jobs for replica sets and sharding via the MongoDB Go driver
 
-**NOTE:** If you change the project, you need to update the Helm Chart
-using the same command above to sync the latest changes. Furthermore,
-if you create webhooks, you need to use the above command with
-the '--force' flag and manually ensure that any custom configuration
-previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml'
-is manually re-applied afterwards.
+* **Supporting Logic (Packages)**
 
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
+  * `InitReplicaSet()`: initializes replica sets via Mongo Shell or driver
 
-**NOTE:** Run `make help` for more information on all potential `make` targets
+<img src="../../resources/replicaset_status.png" width="580" height="350" />
 
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+
+  * `InitSharding()`: enables sharding on collections
+
+<img src="../../resources/shard_status.png" width="580" height="350" />
+
+
+---
+
+### b) **Backup Workflow**
+
+Document:
+
+1. **How the backup CronJob is created** from the CR `spec.backup.schedule`.
+2. **What it does**:
+
+   * Connects to each shard/config server
+   * Uses `mongodump` to create an archive
+   * Compresses and uploads it to `spec.backup.bucket`
+3. **Security**:
+
+   * Uses a `Secret` with base64-encoded access/secret keys
+   * Ensures credentials are not logged
+4. **Failure handling**:
+
+   * Failed jobs should retry or emit Kubernetes Events for alerting
 
 ## License
 
