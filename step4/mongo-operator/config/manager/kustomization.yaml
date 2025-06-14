@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: sadegh81/monogdb-operator
-  newTag: v58
+  newTag: latest

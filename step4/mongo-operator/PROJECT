@@ -6,6 +6,8 @@ cliVersion: 4.6.0
 domain: sadegh.msm
 layout:
 - go.kubebuilder.io/v4
+plugins:
+  helm.kubebuilder.io/v1-alpha: {}
 projectName: mongo-operator
 repo: github.com/sadegh-msm/mongodb-operator
 resources:

@@ -31,13 +31,13 @@ spec:
     key: userId
 
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: arvan-s3-secret
-  namespace: default
-type: Opaque
-data:
-  accessKey: BASE64_ENCODED_ACCESS_KEY
-  secretKey: BASE64_ENCODED_SECRET_KEY
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: arvan-s3-secret
+#   namespace: default
+# type: Opaque
+# data:
+#   accessKey: BASE64_ENCODED_ACCESS_KEY
+#   secretKey: BASE64_ENCODED_SECRET_KEY
 

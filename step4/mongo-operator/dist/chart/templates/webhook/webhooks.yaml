@@ -1,0 +1,67 @@
+{{- if .Values.webhook.enable }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: mongo-operator-mutating-webhook-configuration
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- if .Values.certmanager.enable }}
+    cert-manager.io/inject-ca-from: "{{ $.Release.Namespace }}/serving-cert"
+    {{- end }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+webhooks:
+  - name: mmongodbcluster-v1alpha1.kb.io
+    clientConfig:
+      service:
+        name: mongo-operator-webhook-service
+        namespace: {{ .Release.Namespace }}
+        path: /mutate-database-sadegh-msm-v1alpha1-mongodbcluster
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - database.sadegh.msm
+        apiVersions:
+          - v1alpha1
+        resources:
+          - mongodbclusters
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: mongo-operator-validating-webhook-configuration
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- if .Values.certmanager.enable }}
+    cert-manager.io/inject-ca-from: "{{ $.Release.Namespace }}/serving-cert"
+    {{- end }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+webhooks:
+  - name: vmongodbcluster-v1alpha1.kb.io
+    clientConfig:
+      service:
+        name: mongo-operator-webhook-service
+        namespace: {{ .Release.Namespace }}
+        path: /validate-database-sadegh-msm-v1alpha1-mongodbcluster
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - database.sadegh.msm
+        apiVersions:
+          - v1alpha1
+        resources:
+          - mongodbclusters
+{{- end }}
