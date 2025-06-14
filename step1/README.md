@@ -136,6 +136,7 @@ This role:
 * Installs the public SSH key from the control machine (`public_key_file`)
 
 This ensures seamless Ansible operations and secure login without using a password.
+
 To use this role set Tag to `ssh_passwordless`
 
 ---
@@ -239,4 +240,5 @@ dns:
   - 178.22.122.100
   - 185.51.200.2
 gitlab_runner_token: YOUR_REGISTRATION_TOKEN_HERE
+docker_token: YOUR_DOCKER_LOGIN_TOKEN_HERE
 ```
