@@ -113,24 +113,6 @@ metrics:
   enabled: false
 
 schedules:
-  # grafana:
-  #  disabled: false
-  #  labels:
-  #    app: monitoring
-  #  annotations:
-  #    app: monitoring
-  #  schedule: "0 1 * * *"
-  #  useOwnerReferencesInBackup: false
-  #  template:
-  #    ttl: "72h"
-  #    includedNamespaces:
-  #    - monitoring
-  #    labelSelector:
-  #      matchExpressions: 
-  #        - key: app.kubernetes.io/name
-  #          operator: In
-  #          values:
-  #          - grafana
   test:
    disabled: false
    schedule: "1 * * * *"

@@ -27,7 +27,7 @@ This project is a comprehensive full-stack DevOps implementation that spans infr
 
 #### Tasks:
 
-* Extend the Ansible playbook to provision **3 new VMs** (1 control plane, 2 workers).
+* Extend the Ansible playbook to provision **3 new VMs** (3 control plane).
 * Install and configure:
 
   * **kubeadm**, **CRI-O**, **Calico**, and **Longhorn**.
