@@ -15,7 +15,7 @@ The mongo-operator automates the lifecycle of MongoDB clusters on Kubernetes by 
 - Periodic database backups to S3-compatible buckets (e.g., ArvanCloud)
 - Transparent support for enabling MongoDB sharding on specific databases and collections
 
-<img src="../../resources/shard_split.png" width="580" height="350" />
+<img src="../../resources/shard_split.png" width="90%" height="90%" />
 
 Example CRD:
 ```yaml
@@ -84,7 +84,7 @@ You can apply the samples (examples) from the config/sample:
 kubectl apply -k config/samples/
 ```
 
-<img src="../../resources/mongo_cluster_pods.png" width="580" height="350" />
+<img src="../../resources/mongo_cluster_pods.png" width="40%" height="40%" />
 
 
 ### To Uninstall
@@ -122,10 +122,10 @@ data:
 ```
 Backups will run as a CronJob inside the cluster at the specified schedule (spec.backup.schedule) using mongodump. The backup tarball is uploaded to the specified bucket on ArvanCloud.
 
-<img src="../../resources/mongo_cluster_backup.png" width="580" height="350" />
+<img src="../../resources/mongo_cluster_backup.png" width="70%" height="70%" />
 
 
-## ** Operator Architecture & Backup Workflow **
+## **Operator Architecture & Backup Workflow**
 
 ### a) **Operator Architecture**
 
@@ -146,12 +146,12 @@ Include an architectural diagram or at least describe the components:
 
   * `InitReplicaSet()`: initializes replica sets via Mongo Shell or driver
 
-<img src="../../resources/replicaset_status.png" width="580" height="350" />
+<img src="../../resources/replicaset_status.png" width="70%" height="70%" />
 
 
   * `InitSharding()`: enables sharding on collections
 
-<img src="../../resources/shard_status.png" width="580" height="350" />
+<img src="../../resources/shard_status.png" width="80%" height="80%" />
 
 
 ---
