@@ -82,7 +82,7 @@ Health check endpoint. Returns:
 200 OK
 ```
 
-<img src="../resources/shortner-usage.png" width="580" height="350" />
+<img src="../resources/shortner-usage.png" width="70%" height="70%" />
 
 ---
 
@@ -459,7 +459,7 @@ spec:
     redisHost: redis-master:6379
 ```
 
-<img src="../resources/app-pods.png" width="580" height="350" />
+<img src="../resources/app-pods.png" width="70%" height="70%" />
 
 ---
 
@@ -539,7 +539,7 @@ url-shortner:
     - env | egrep TAG ; echo "$TAG"
 ```
 
-<img src="../resources/gitlab-build.png" width="580" height="350" />
+<img src="../resources/gitlab-build.png" width="70%" height="70%" />
 
 ---
 
@@ -580,7 +580,7 @@ url-shortner(prod):
     name: production
 ```
 
-<img src="../resources/gitlab-build-deploy.png" width="580" height="350" />
+<img src="../resources/gitlab-build-deploy.png" width="70%" height="70%" />
 
 > 📌 The job is marked `manual`, meaning it won’t run automatically unless you approve it in the GitLab UI—ideal for production safety.
 
@@ -602,8 +602,8 @@ flux bootstrap git --url=ssh://git@94.101.184.72:2222/root/flux-cd \
   --path=flux-cd
 ```
 
-<img src="../resources/flux-bootstrap.png" width="580" height="350" />
-<img src="../resources/flux-pods.png" width="580" height="350" />
+<img src="../resources/flux-bootstrap.png" width="90%" height="90%" />
+<img src="../resources/flux-pods.png" width="70%" height="70%" />
 
 
 ### `GitRepository` Resource
@@ -711,7 +711,7 @@ The **job logic**:
 3. Archives the backup folder as `.tar.gz`.
 4. Uploads the archive to the specified S3 bucket.
 
-<img src="../resources/mongo_backup_cj.png" width="580" height="350" />
+<img src="../resources/mongo_backup_cj.png" width="90%" height="90%" />
 
 ```sh
 mongodump --uri="$MONGO_HOST" --out="$BACKUP_DIR"
@@ -754,5 +754,5 @@ data:
 
 > ⚠️ Ensure these values are base64-encoded.
 
-<img src="../resources/monog_backup_result.png" width="580" height="350" />
+<img src="../resources/monog_backup_result.png" width="90%" height="90%" />
 
