@@ -38,7 +38,7 @@ Ansible automates the installation and configuration of:
 * Calico as the CNI plugin
 * Longhorn for persistent storage
 
-### 📁 Directory Structure
+### Directory Structure
 
 ```bash
 ansible/
@@ -55,19 +55,19 @@ ansible/
 
 ---
 
-## ✅ Outcome
+## Outcome
 
 At the end of this step, you’ll have:
 
 * A fully functional Kubernetes cluster
-<img src="../resources/Nodes_and_HA.png" width="580" height="350" />
+<img src="../resources/Nodes_and_HA.png"  width="80%" height="80%" />
 * HA load-balanced control plane
 * CRI-O, Calico, and Longhorn integrated and running
-<img src="../resources/full_cluster_pods.png" width="580" height="350" />
+<img src="../resources/full_cluster_pods.png"  width="80%" height="80%" />
 
 ---
 
-## 📌 Prerequisites
+## Prerequisites
 
 * Terraform ≥ 1.3
 * Ansible ≥ 2.14
@@ -118,7 +118,7 @@ After a successful backup, Velero will upload backup artifacts to your S3 bucket
 
 Example output from a successful backup:
 
-<img src="../resources/velero_arvan.png" width="580" height="350" />
+<img src="../resources/velero_arvan.png"  width="50%" height="50%" />
 
 ---
 
@@ -136,8 +136,7 @@ To inspect the contents of a backup:
 velero describe backup <backup-name> -n velero
 ```
 
-<img src="../resources/velero_describe.png" width="580" height="350" />
-
+<img src="../resources/velero_describe.png" alt="Velero Backup Description" width="40%" height="40%">
 
 To restore:
 
@@ -145,7 +144,7 @@ To restore:
 velero restore create --from-backup <backup-name>
 ```
 
-<img src="../resources/velero_restore.png" width="580" height="350" />
+<img src="../resources/velero_restore.png"  width="60%" height="60%" />
 
 ---
 
@@ -291,7 +290,7 @@ Then install:
 helm install vmagent . -f values-prod.yaml -n victoriametrics 
 ```
 
-<img src="../resources/vm-pods.png" width="580" height="350" />
+<img src="../resources/vm-pods.png" width="80%" height="80%" />
 
 ---
 
@@ -311,8 +310,8 @@ Create or import a dashboard for:
 * **Memory usage** (`container_memory_usage_bytes`)
 * **Pod status** (`kube_pod_status_phase`)
 
-<img src="../resources/mon4.png" width="580" height="350" />
-<img src="../resources/mon3.png" width="580" height="350" />
-<img src="../resources/mon2.png" width="580" height="350" />
-<img src="../resources/mon1.png" width="580" height="350" />
+<img src="../resources/mon4.png" width="60%" height="60%" />
+<img src="../resources/mon3.png" width="60%" height="60%" />
+<img src="../resources/mon2.png" width="60%" height="60%" />
+<img src="../resources/mon1.png" width="60%" height="60%" />
 
