@@ -52,7 +52,7 @@ This project is a comprehensive full-stack DevOps implementation that spans infr
 * Kubernetes Deployment:
 
   * Use **Helm charts** for MongoDB and Redis.
-  * Deploy the application via Helm chart or **Kustomize overlay**.
+  * Deploy the application via Helm chart.
 * CI/CD:
 
   * Build and push Docker image to **GitLab Registry**.
@@ -74,7 +74,7 @@ This project is a comprehensive full-stack DevOps implementation that spans infr
 
   * Deploy MongoDB StatefulSets.
   * Set up replication and sharding automatically.
-  * Trigger backups via **Velero** or `mongodump` to Arvan storage.
+  * Trigger backups via `mongodump` to Arvan storage.
 * Test:
 
   * Deploy the Operator to the cluster.
